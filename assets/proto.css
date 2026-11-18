@@ -1,0 +1,52 @@
+/* prototype layer – responsive switch + popups (does not restyle the design) */
+html{scroll-behavior:smooth}
+[id]{scroll-margin-top:110px}
+#desk,#mob{min-width:0}
+@media (min-width:1024px){#mob{display:none}}
+@media (max-width:1023.98px){#desk{display:none}}
+html.pt-lock{overflow:hidden}
+#proto-ui{font-family:'LH Body','Noto Sans Thai',system-ui,sans-serif;color:#1F2224}
+.pt-toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,24px);opacity:0;pointer-events:none;z-index:1001;background:#1F2224;color:#fff;padding:12px 20px;border-radius:14px;font-size:16px;max-width:min(560px,calc(100vw - 32px));box-shadow:0 12px 32px rgba(0,0,0,.25);transition:all .25s ease}
+.pt-toast.on{opacity:1;transform:translate(-50%,0)}
+.pt-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.pt-modal[hidden]{display:none}
+.pt-backdrop{position:absolute;inset:0;background:rgba(10,30,34,.5)}
+.pt-dialog{position:relative;background:#fff;border-radius:24px;width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:32px;box-shadow:0 30px 80px rgba(0,30,34,.35);animation:ptIn .2s ease}
+@keyframes ptIn{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.pt-x{position:absolute;right:14px;top:12px;width:44px;height:44px;border:0;background:#F2F7F6;border-radius:999px;font-size:26px;line-height:1;cursor:pointer;color:#1F2224}
+.pt-dialog h2{margin:0 0 6px;font-family:'LH Header',sans-serif;font-size:30px;font-weight:700;padding-right:40px}
+.pt-sub{margin:0 0 18px;color:#3D4845;font-size:17px}
+.pt-dialog form{display:flex;flex-direction:column;gap:14px}
+.pt-dialog label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:16px}
+.pt-dialog input,.pt-dialog select{font:inherit;font-weight:400;font-size:17px;padding:12px 14px;border:1.5px solid #C5D6D2;border-radius:12px;background:#fff;color:#1F2224}
+.pt-dialog input:focus,.pt-dialog select:focus{outline:3px solid #FFCD00;outline-offset:1px;border-color:#00756B}
+.pt-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pt-chk{flex-direction:row!important;align-items:flex-start;gap:10px!important;font-weight:400!important;font-size:15px!important}
+.pt-chk input{width:20px;height:20px;margin-top:2px}
+.pt-err{color:#C0362C;font-size:14px;font-weight:400;margin-top:-2px}
+.pt-btn{border:0;background:#3AA3CE;color:#fff;font:inherit;font-weight:700;font-size:18px;padding:14px 22px;border-radius:999px;cursor:pointer;min-height:48px}
+.pt-btn:disabled{opacity:.7;cursor:progress}
+.pt-note{font-size:14px;color:#5A6662;margin:12px 0 0}
+.pt-ok{text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+.pt-check{width:64px;height:64px;border-radius:999px;background:#E0F4F1;color:#00756B;font-size:34px;display:flex;align-items:center;justify-content:center;font-weight:700}
+.pt-ok p{margin:0;color:#3D4845}
+.pt-ref{background:#F2F7F6;border-radius:12px;padding:8px 14px}
+.pt-grid{display:grid;gap:10px}
+.pt-card{display:flex;flex-direction:column;gap:2px;border:1.5px solid #E2EAE8;border-radius:16px;padding:14px 16px;cursor:pointer;color:#1F2224;text-decoration:none}
+.pt-card:hover{border-color:#00756B;background:#F2F7F6}
+.pt-card span{font-size:14px;color:#5A6662}
+.pt-qr{width:180px;height:180px;margin:6px auto;border-radius:16px;background:
+ conic-gradient(from 90deg at 25% 25%,#1F2224 25%,#fff 0) 0 0/24px 24px,#fff;border:10px solid #fff;box-shadow:0 0 0 1px #E2EAE8}
+.pt-q{width:100%;box-sizing:border-box}
+.pt-res{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.pt-res a{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:12px;background:#F2F7F6;color:#1F2224;text-decoration:none}
+.pt-res a:hover{background:#E0F4F1}
+.pt-res span{color:#5A6662;font-size:14px;white-space:nowrap}
+.pt-none{color:#5A6662;padding:8px 2px}
+.pt-sr{position:absolute;left:-9999px}
+@media (max-width:480px){.pt-dialog{padding:24px 18px;border-radius:20px}.pt-row{grid-template-columns:1fr}}
+.pt-sum{background:#F2F7F6;border-radius:16px;padding:14px 16px;margin:0 0 16px;display:flex;flex-direction:column;gap:8px}
+.pt-sum-row{display:flex;justify-content:space-between;gap:16px;font-size:16px}
+.pt-sum-row span{color:#5A6662}
+.pt-sum-row b{text-align:right}
+.pt-edit{align-self:flex-start;border:0;background:none;color:#00756B;font:inherit;font-weight:700;font-size:15px;padding:4px 0;cursor:pointer;text-decoration:underline}
