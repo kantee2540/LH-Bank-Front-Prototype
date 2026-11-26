@@ -1,73 +1,49 @@
 <!doctype html>
-<html lang="th">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>เลือกหน้า | LH Bank 2027 – Prototype</title>
-<link rel="stylesheet" href="assets/fonts.css">
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LH Bank 2027 – Prototype</title>
 <style>
-body{margin:0;background:#F4F7F6;color:#1F2A28;font-family:'LH Body','Noto Sans Thai',system-ui,sans-serif}
-a{color:inherit;text-decoration:none}
-a:focus-visible{outline:3px solid #FFCD00;outline-offset:3px;border-radius:16px}
-.wrap{max-width:1120px;margin:0 auto;padding:48px 16px 64px}
-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:40px}
-header img{height:40px;width:auto;display:block}
-.tag{font-size:13px;color:#00756B;background:#E3F1EF;padding:6px 12px;border-radius:999px}
-h1{font-family:'LH Header',sans-serif;font-size:clamp(28px,4vw,40px);margin:0 0 8px;color:#00756B}
-p.lead{margin:0 0 32px;color:#5A6966;font-size:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px}
-.card{display:flex;flex-direction:column;background:#FFF;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:transform .15s,box-shadow .15s}
-.card:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(0,117,107,.16)}
-.card img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:#E3F1EF}
-.body{padding:16px 20px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.num{font-size:12px;color:#8A9895;letter-spacing:.04em}
-.name{font-family:'LH Header',sans-serif;font-size:20px;margin-top:2px}
-.file{font-size:12px;color:#8A9895;margin-top:4px}
-.arrow{flex-shrink:0;width:36px;height:36px;border-radius:50%;background:#FFCD00;display:grid;place-items:center;color:#1F2A28}
-.card:hover .arrow{background:#00756B;color:#FFF}
-.arrow svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <img src="assets/img/887a1b7f9e239e435b28a71c83b7e51c.svg" alt="LH Bank">
-    <span class="tag">Prototype 2027</span>
-  </header>
-
-  <h1>เลือกหน้าที่ต้องการดู</h1>
-  <p class="lead">Select a page to view</p>
-
-  <nav class="grid">
-    <a class="card" href="01-Home.html">
-      <img src="assets/img/d7a9edfb422a532cbf4f3928127666ca.jpg" alt="">
-      <div class="body">
-        <div><div class="num">01</div><div class="name">หน้าแรก</div><div class="file">Home</div></div>
-        <span class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-      </div>
-    </a>
-    <a class="card" href="02-Personal.html">
-      <img src="assets/img/0f361559d9312af12988ff76e22d515d.jpg" alt="">
-      <div class="body">
-        <div><div class="num">02</div><div class="name">ลูกค้าบุคคล</div><div class="file">Personal</div></div>
-        <span class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-      </div>
-    </a>
-    <a class="card" href="03-SME.html">
-      <img src="assets/img/c14864205db8e2bf638a93dc718d0fe4.jpg" alt="">
-      <div class="body">
-        <div><div class="num">03</div><div class="name">ลูกค้า SME</div><div class="file">SME</div></div>
-        <span class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-      </div>
-    </a>
-    <a class="card" href="04-Business.html">
-      <img src="assets/img/ea393ebb98e89cbe57b409975ef6c050.jpg" alt="">
-      <div class="body">
-        <div><div class="num">04</div><div class="name">ลูกค้าธุรกิจ</div><div class="file">Business</div></div>
-        <span class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-      </div>
-    </a>
-  </nav>
-</div>
-</body>
-</html>
+@font-face{font-family:'LH Header';src:url(assets/img/b1d7fcd17278de146986b6230ad7c6b3.ttf) format('truetype');font-weight:700}
+@font-face{font-family:'LH Header';src:url(assets/img/baf2bb913db2650885d9cae367852f92.ttf) format('truetype');font-weight:200}
+@font-face{font-family:'LH Body';src:url(assets/img/d0cf0748997b2b0f4245fd9e3cbff622.ttf) format('truetype');font-weight:400}
+@font-face{font-family:'LH Body';src:url(assets/img/c6afad55c0dd9c8d908becaea6ef3ed8.ttf) format('truetype');font-weight:700}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:'LH Body',system-ui,sans-serif;color:#1F2224;background:#E8EFEE;display:grid;grid-template-columns:300px 1fr;grid-template-rows:auto 1fr}
+header{grid-column:1/-1;display:flex;align-items:center;gap:20px;padding:14px 24px;background:linear-gradient(180deg,#2F5C66 0%,#1D3F47 100%);color:#fff;flex-wrap:wrap}
+header img{height:34px;width:auto}
+header h1{margin:0;font-family:'LH Header',sans-serif;font-weight:200;font-size:26px;flex:1;min-width:200px}
+header h1 b{font-weight:700}
+.sizes{display:flex;gap:4px;background:rgba(255,255,255,.12);border-radius:999px;padding:4px}
+.sizes button{font:inherit;font-weight:700;font-size:15px;border:0;border-radius:999px;padding:8px 16px;background:transparent;color:#CFE3E0;cursor:pointer}
+.sizes button[aria-pressed=true]{background:#fff;color:#1D3F47}
+.open{color:#fff;font-weight:700;font-size:15px;text-decoration:none;border:1.5px solid rgba(255,255,255,.5);border-radius:999px;padding:8px 16px}
+aside{background:#fff;border-right:1px solid #D3E3E0;overflow:auto;padding:14px 12px 24px}
+aside .g{margin:14px 10px 4px;font-size:13px;font-weight:700;color:#5A6662}
+aside button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;font:inherit;font-size:16px;border:0;background:transparent;padding:10px;border-radius:12px;cursor:pointer;color:#1F2224}
+aside button span{font-family:'LH Header',sans-serif;font-weight:700;color:#00756B;width:24px}
+aside button:hover{background:#F1F6F5}
+aside button[aria-current=true]{background:#E0F4F1;font-weight:700}
+aside .tip{margin:18px 10px 0;font-size:13px;line-height:1.5;color:#5A6662}
+main{position:relative;overflow:hidden;display:flex;justify-content:center;align-items:flex-start;padding:20px}
+.frame{transform-origin:top center;background:#fff;box-shadow:0 20px 60px rgba(0,30,36,.18);border-radius:14px;overflow:hidden}
+.frame iframe{display:block;border:0;width:100%;height:100%}
+.label{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:13px;color:#5A6662;background:#fff;border-radius:999px;padding:4px 12px}
+@media (max-width:900px){body{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}aside{border-right:0;border-bottom:1px solid #D3E3E0;max-height:220px}}
+</style></head><body>
+<header><img src="assets/img/11cfd8ece265d7235786dd51f0fc33e6.png" alt="LH Bank"><h1>Website 2027 · <b>Prototype</b></h1>
+<div class="sizes" role="group" aria-label="ขนาดจอ"><button type="button" data-w="1440" aria-pressed="true">Desktop 1440</button><button type="button" data-w="430" aria-pressed="false">Mobile 430</button></div>
+<a class="open" id="open" href="01-Home.html" target="_blank" rel="noopener">เปิดเต็มจอ ↗</a></header>
+<aside><nav aria-label="หน้าใน prototype"><p class="g">หน้าแรก</p><button type="button" data-file="01-Home.html"><span>01</span>หน้าแรก</button><p class="g">ลูกค้าบุคคล</p><button type="button" data-file="02-Personal.html"><span>02</span>ลูกค้าบุคคล</button><button type="button" data-file="03-Life-Stages.html"><span>03</span>ตามช่วงชีวิต</button><button type="button" data-file="04-Deposit.html"><span>04</span>เงินฝากและบัญชี B YOU</button><button type="button" data-file="05-Home-Loan.html"><span>05</span>สินเชื่อบ้าน</button><button type="button" data-file="06-Home-Refinance.html"><span>06</span>รีไฟแนนซ์บ้าน</button><button type="button" data-file="07-Happy-Cash.html"><span>07</span>สินเชื่อส่วนบุคคล Happy Cash</button><button type="button" data-file="08-Calculators.html"><span>08</span>เครื่องมือคำนวณ</button><p class="g">ลูกค้า SME</p><button type="button" data-file="09-SME.html"><span>09</span>ลูกค้า SME</button><button type="button" data-file="10-SME-Loan.html"><span>10</span>สินเชื่อ SME</button><p class="g">ลูกค้าธุรกิจ</p><button type="button" data-file="11-Corporate.html"><span>11</span>ลูกค้าธุรกิจ</button><p class="g">นักลงทุนสัมพันธ์</p><button type="button" data-file="12-Investor-Relations.html"><span>12</span>นักลงทุนสัมพันธ์</button></nav><p class="tip">ทุกหน้ากดเมนู ปุ่ม ฟอร์ม และ LH Advisor ได้ · เปิดไฟล์หน้าไหนก็ได้โดยตรง ระบบเลือก Desktop หรือ Mobile ตามขนาดจอเอง</p></aside>
+<main><div class="frame" id="frame"><iframe id="f" title="หน้าตัวอย่าง" src="01-Home.html?nobar=1"></iframe></div><span class="label" id="lb"></span></main>
+<script>
+(function(){
+  var W=1440,H=900,file='01-Home.html',f=document.getElementById('f'),fr=document.getElementById('frame'),main=document.querySelector('main'),lb=document.getElementById('lb');
+  function hFor(w){return w===1440?900:932;}
+  function lay(){var aw=main.clientWidth-40,ah=main.clientHeight-50,h=hFor(W),s=Math.min(1,aw/W,ah/h);fr.style.width=W+'px';fr.style.height=h+'px';fr.style.transform='scale('+s+')';fr.style.marginBottom=(-(1-s)*h)+'px';lb.textContent=W+' × '+h+' · ย่อ '+Math.round(s*100)+'%';}
+  function load(){f.src=file+'?nobar=1';document.getElementById('open').href=file;document.querySelectorAll('aside button').forEach(function(b){b.setAttribute('aria-current',b.dataset.file===file?'true':'false');});}
+  document.querySelectorAll('.sizes button').forEach(function(b){b.addEventListener('click',function(){W=+b.dataset.w;document.querySelectorAll('.sizes button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});lay();f.src=f.src;});});
+  document.querySelectorAll('aside button').forEach(function(b){b.addEventListener('click',function(){file=b.dataset.file;load();});});
+  f.addEventListener('load',function(){try{var p=f.contentWindow.location.pathname.split('/').pop();if(p&&p!==file){file=p;document.getElementById('open').href=file;document.querySelectorAll('aside button').forEach(function(b){b.setAttribute('aria-current',b.dataset.file===file?'true':'false');});}}catch(e){}});
+  window.addEventListener('resize',lay);lay();load();
+})();
+</script></body></html>

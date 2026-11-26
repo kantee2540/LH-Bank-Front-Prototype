@@ -1,252 +1,211 @@
-/* LH Bank 2027 – interactive prototype runtime (no backend, no dependencies) */
+/* LH Bank 2027 · prototype layer
+   - picks the Desktop or Mobile design for the current screen width
+   - maps links between pages, simulates actions that need a backend
+   - page navigator (left edge tab) for presenting */
 (function () {
   'use strict';
+  var P = window.__PAGE, PAGES = window.__PAGES || [], MAP = window.__MAP || {};
+  var q = new URLSearchParams(location.search);
+  var forced = q.get('view');
+  var SHOT = q.has('shot');
+  var BP = 900, DESK = 1280;
 
-  /* ---------- tiny DC template engine ---------- */
-  window.DCLogic = class {
-    constructor(props) { this.props = props || {}; this.state = {}; }
-    setState(o) { Object.assign(this.state, o); if (this.__render) this.__render(); }
-  };
-  function esc(v) { return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-  function look(path, scope) {
-    const p = path.split('.');
-    if (p[0] === 'true') return true; if (p[0] === 'false') return false;
-    let cur;
-    for (const sc of scope) { if (sc && Object.prototype.hasOwnProperty.call(sc, p[0])) { cur = sc[p[0]]; break; } }
-    for (let i = 1; i < p.length; i++) cur = cur == null ? undefined : cur[p[i]];
-    return cur;
+  function mode() {
+    if (forced === 'desktop' || forced === 'mobile') return forced;
+    return window.innerWidth >= BP ? 'desktop' : 'mobile';
   }
-  function fmt(v) { if (v === true) return 'true'; if (v === false) return 'false'; if (v == null || typeof v === 'object' || typeof v === 'function') return ''; return String(v); }
-  const EV = { onClick: 'click', onChange: 'change', onInput: 'input', onSubmit: 'submit', onKeyDown: 'keydown' };
-  function holes(txt, scope, reg) {
-    txt = txt.replace(/\s(on[A-Z][A-Za-z]*)="\{\{\s*([\w.]+)\s*\}\}"/g, function (m, ev, path) {
-      const fn = look(path, scope); if (typeof fn !== 'function') return '';
-      reg.push(fn); return ' data-on-' + (EV[ev] || ev.slice(2).toLowerCase()) + '="' + (reg.length - 1) + '"';
-    });
-    txt = txt.replace(/\shint-placeholder-[a-z]+="[^"]*"/g, '');
-    return txt.replace(/\{\{\s*([\w.]+)\s*\}\}/g, function (m, path) { return esc(fmt(look(path, scope))); });
-  }
-  function findClose(s, name, start) {
-    let depth = 1, i = start; const re = new RegExp('<(/?)' + name + '\\b[^>]*>', 'g');
-    for (;;) { re.lastIndex = i; const m = re.exec(s); if (!m) throw new Error('unclosed ' + name); depth += m[1] ? -1 : 1; if (depth === 0) return [m.index, re.lastIndex]; i = re.lastIndex; }
-  }
-  function attr(a, n) { const m = a.match(new RegExp(n + '="\\{\\{\\s*([\\w.]+)\\s*\\}\\}"')); return m ? m[1] : null; }
-  function render(s, scope, reg) {
-    let out = '', i = 0; const TAG = /<(sc-for|sc-if)\b([^>]*)>/g;
-    for (;;) {
-      TAG.lastIndex = i; const m = TAG.exec(s);
-      if (!m) { out += holes(s.slice(i), scope, reg); break; }
-      out += holes(s.slice(i, m.index), scope, reg);
-      const name = m[1], a = m[2], ce = findClose(s, name, TAG.lastIndex), body = s.slice(TAG.lastIndex, ce[0]);
-      if (name === 'sc-if') { if (look(attr(a, 'value'), scope)) out += render(body, scope, reg); }
-      else { const list = look(attr(a, 'list'), scope) || []; const v = a.match(/as="(\w+)"/)[1]; for (const it of list) { const o = {}; o[v] = it; out += render(body, [o].concat(scope), reg); } }
-      i = ce[1];
-    }
-    return out;
-  }
-  /* ---------- DOM morph (keeps focus, slider drags, scroll) ---------- */
-  function syncAttrs(a, b) {
-    for (const at of Array.from(a.attributes)) if (!b.hasAttribute(at.name)) a.removeAttribute(at.name);
-    for (const at of Array.from(b.attributes)) if (a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value);
-    if ((a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && document.activeElement !== a) { const v = b.getAttribute('value'); if (v !== null && a.value !== v) a.value = v; }
-  }
-  function morph(a, b) {
-    const an = Array.from(a.childNodes), bn = Array.from(b.childNodes);
-    for (let i = 0; i < bn.length; i++) {
-      const x = an[i], y = bn[i];
-      if (!x) { a.appendChild(y.cloneNode(true)); continue; }
-      if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName) { a.replaceChild(y.cloneNode(true), x); continue; }
-      if (x.nodeType === 3 || x.nodeType === 8) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; continue; }
-      syncAttrs(x, y); morph(x, y);
-    }
-    for (let i = an.length - 1; i >= bn.length; i--) a.removeChild(an[i]);
-  }
-  window.mountDC = function (rootId, Comp, tplId) {
-    const root = document.getElementById(rootId), tpl = document.getElementById(tplId).textContent;
-    const inst = new Comp({}); let reg = [];
-    inst.__render = function () {
-      reg = []; const html = render(tpl, [inst.renderVals()], reg);
-      const t = document.createElement('template'); t.innerHTML = html; morph(root, t.content);
-    };
-    function fire(type, e) {
-      const sel = '[data-on-' + type + ']'; const el = e.target.closest && e.target.closest(sel);
-      if (!el || !root.contains(el)) return false;
-      if (type === 'change' && el.tagName === 'INPUT' && !/checkbox|radio/.test(el.type)) return false;
-      const fn = reg[+el.getAttribute('data-on-' + type)]; if (!fn) return false;
-      if (type === 'submit') e.preventDefault();
-      if (type === 'click' && el.tagName === 'A' && el.getAttribute('href') === '#') e.preventDefault();
-      e.__dc = true; fn(e); return true;
-    }
-    root.addEventListener('click', function (e) { fire('click', e); });
-    root.addEventListener('input', function (e) { if (!fire('input', e)) { const el = e.target; if (el.hasAttribute && el.hasAttribute('data-on-change') && el.tagName === 'INPUT') { const fn = reg[+el.getAttribute('data-on-change')]; if (fn) fn(e); } } });
-    root.addEventListener('change', function (e) { fire('change', e); });
-    root.addEventListener('submit', function (e) { fire('submit', e); });
-    inst.__render();
-    return inst;
-  };
+  var M = mode();
+  document.documentElement.setAttribute('data-view', M);
 
-  /* ---------- prototype layer: navigation, modals, toasts, search ---------- */
-  const PAGES = { 'หน้าแรก': '01-Home.html', 'ลูกค้าบุคคล': '02-Personal.html', 'ลูกค้า SME': '03-SME.html', 'ลูกค้าธุรกิจ': '04-Business.html' };
-  const ui = document.createElement('div'); ui.id = 'proto-ui';
-  ui.innerHTML = `
-  <div class="pt-toast" role="status" aria-live="polite"></div>
-  <div class="pt-modal" id="pt-modal" hidden>
-    <div class="pt-backdrop" data-close></div>
-    <div class="pt-dialog" role="dialog" aria-modal="true" aria-labelledby="pt-title">
-      <button class="pt-x" type="button" aria-label="ปิด" data-close>&times;</button>
-      <div class="pt-body"></div>
-    </div>
-  </div>`;
-  document.addEventListener('DOMContentLoaded', function () { document.body.appendChild(ui); });
-  function toast(msg) {
-    const t = ui.querySelector('.pt-toast'); t.textContent = msg; t.classList.add('on');
-    clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove('on'); }, 2600);
+  // keep ?view / ?shot when moving between pages
+  function keep(url) {
+    var extra = [];
+    if (forced) extra.push('view=' + forced);
+    if (SHOT) extra.push('shot=1');
+    if (q.has('nobar')) extra.push('nobar=1');
+    if (!extra.length) return url;
+    var hash = '', i = url.indexOf('#');
+    if (i >= 0) { hash = url.slice(i); url = url.slice(0, i); }
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + extra.join('&') + hash;
   }
-  let lastFocus = null;
-  function openModal(html, after) {
-    const m = ui.querySelector('#pt-modal'); lastFocus = document.activeElement;
-    m.querySelector('.pt-body').innerHTML = html; m.hidden = false; document.documentElement.classList.add('pt-lock');
-    const f = m.querySelector('input,select,button:not(.pt-x)'); if (f) setTimeout(function () { f.focus(); }, 30);
-    if (after) after(m);
-  }
-  function closeModal() { const m = ui.querySelector('#pt-modal'); m.hidden = true; document.documentElement.classList.remove('pt-lock'); if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-  ui.addEventListener('click', function (e) { if (e.target.closest('[data-close]')) closeModal(); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !ui.querySelector('#pt-modal').hidden) closeModal(); });
 
-  function wireForm(m, okTitle, okText) {
-    const form = m.querySelector('form'); if (!form) return;
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      const bad = Array.from(form.querySelectorAll('[required]')).filter(function (el) { return !el.value.trim() || (el.pattern && !new RegExp('^' + el.pattern + '$').test(el.value.trim())); });
-      form.querySelectorAll('.pt-err').forEach(function (x) { x.remove(); });
-      if (bad.length) { bad.forEach(function (el) { const s = document.createElement('span'); s.className = 'pt-err'; s.textContent = el.dataset.err || 'กรุณากรอกข้อมูล'; el.after(s); }); bad[0].focus(); return; }
-      const btn = form.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'กำลังส่งข้อมูล…';
+  // desktop below 1280px: scale the 1280px layout down so nothing breaks
+  function fit() {
+    if (M !== 'desktop') { document.documentElement.style.zoom = ''; return; }
+    var w = window.innerWidth;
+    document.documentElement.style.zoom = (w < DESK && forced !== 'desktop') ? String(w / DESK) : '';
+  }
+
+  // ---------- boot ----------
+  var helm = document.getElementById(M === 'desktop' ? 'helm-d' : 'helm-m');
+  document.head.appendChild(helm.content.cloneNode(true));
+  if (SHOT) {
+    try { localStorage.setItem('lhbCookie', '1'); } catch (e) {}
+  }
+  window.__dcAfterBoot = function () {
+    fit();
+    // anchors land below the sticky header (and the page's own sticky nav when it has one)
+    var hd = document.querySelector('header'), sn = null;
+    document.querySelectorAll('nav, div').forEach(function (el) { if (!sn && el.style.position === 'sticky' && el.style.top && el.style.top !== '0px' && el.style.bottom === '') sn = el; });
+    document.documentElement.style.scrollPaddingTop = ((hd ? hd.offsetHeight : 0) + (sn ? sn.offsetHeight : 0) + 12) + 'px';
+    if (location.hash) {
       setTimeout(function () {
-        const ref = 'LHB-' + Math.random().toString(36).slice(2, 8).toUpperCase();
-        m.querySelector('.pt-body').innerHTML = `<div class="pt-ok"><div class="pt-check">✓</div><h2 id="pt-title">${okTitle}</h2><p>${okText}</p><p class="pt-ref">หมายเลขอ้างอิง <b>${ref}</b></p><button type="button" class="pt-btn" data-close>เสร็จสิ้น</button><p class="pt-note">ระบบจำลองสำหรับนำเสนอ ยังไม่มีการส่งข้อมูลจริง</p></div>`;
-      }, 900);
-    });
-  }
-  const TOPICS = ['บ้านและสินเชื่อ', 'ลงทุนและเกษียณ', 'เงินฝากและออม', 'ธุรกิจ SME', 'ลูกค้าธุรกิจ / RM'];
-  function apptModal(topic) {
-    openModal(`<h2 id="pt-title">นัดคุยกับผู้เชี่ยวชาญ</h2><p class="pt-sub">เลือกเรื่องและช่วงเวลา เจ้าหน้าที่จะติดต่อกลับเพื่อยืนยันนัด</p>
-    <form novalidate>
-      <label>ชื่อ-นามสกุล<input name="n" required autocomplete="name" placeholder="เช่น สมใจ ใจดี"></label>
-      <label>เบอร์โทรศัพท์<input name="p" required inputmode="tel" pattern="0[0-9]{8,9}" data-err="กรุณากรอกเบอร์ 9–10 หลัก ขึ้นต้นด้วย 0" placeholder="08x-xxx-xxxx"></label>
-      <label>เรื่องที่อยากคุย<select name="t">${TOPICS.map(function (t) { return '<option' + (t === topic ? ' selected' : '') + '>' + t + '</option>'; }).join('')}</select></label>
-      <div class="pt-row"><label>ช่องทาง<select><option>ที่สาขา</option><option>วิดีโอคอล</option><option>โทรกลับ</option></select></label><label>ช่วงเวลา<select><option>เช้า</option><option selected>บ่าย</option><option>เย็น</option></select></label></div>
-      <label class="pt-chk"><input type="checkbox" required data-err="กรุณายอมรับเงื่อนไข"> ยินยอมให้ธนาคารติดต่อกลับตามข้อมูลที่ให้ไว้</label>
-      <button type="submit" class="pt-btn">ยืนยันนัดหมาย</button>
-    </form>`, function (m) { wireForm(m, 'ส่งคำขอนัดหมายแล้ว', 'เจ้าหน้าที่จะติดต่อกลับภายใน 1 วันทำการ เพื่อยืนยันวันและเวลา'); });
-  }
-  /* booking card already holds the user's choices: read them, ask only for contact details */
-  function readBooking(el) {
-    let card = el.parentElement;
-    for (let k = 0; k < 4 && card && card.querySelectorAll('[aria-pressed=true]').length < 2; k++) card = card.parentElement;
-    if (!card || card.querySelectorAll('[aria-pressed=true]').length < 2) return null;
-    const rows = [], DEF = ['เรื่องที่อยากคุย', 'ช่องทาง', 'ช่วงเวลา', 'ตัวเลือก'];
-    card.querySelectorAll('[aria-pressed=true]').forEach(function (b, i) {
-      const grp = b.parentElement && b.parentElement.parentElement, f = grp && grp.firstElementChild;
-      let lab = f && f !== b.parentElement && f.tagName === 'SPAN' ? f.innerText.trim().replace(/^\d+\s*/, '') : '';
-      rows.push([lab || DEF[Math.min(i, 3)], b.innerText.trim()]);
-    });
-    let calc = '';
-    card.querySelectorAll('span,div').forEach(function (x) { const t = (x.innerText || '').replace(/\s+/g, ' ').trim(); const m = t.match(/^แนบตัวเลขที่คำนวณไว้:?\s*(.+)$/); if (m && !calc) calc = m[1].trim(); });
-    if (calc) rows.push(['ตัวเลขที่คำนวณไว้', calc]);
-    return rows;
-  }
-  function apptModalPre(rows) {
-    const BIZ = /SME|ธุรกิจ/.test(document.title);
-    const sum = rows.map(function (r) { return '<div class="pt-sum-row"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>'; }).join('');
-    openModal(`<h2 id="pt-title">ยืนยันนัดหมาย</h2><p class="pt-sub">ตรวจสอบรายการที่เลือก แล้วกรอกชื่อและเบอร์ติดต่อ</p>
-    <div class="pt-sum">${sum}<button type="button" class="pt-edit" data-close>แก้ไขตัวเลือก</button></div>
-    <form novalidate>
-      <label>${BIZ ? 'ชื่อกิจการ / ชื่อผู้ติดต่อ' : 'ชื่อ-นามสกุล'}<input name="n" required autocomplete="name" placeholder="${BIZ ? 'เช่น ร้านแพ็กดี ออนไลน์' : 'เช่น สมใจ ใจดี'}"></label>
-      <label>เบอร์โทรศัพท์<input name="p" required inputmode="tel" pattern="0[0-9]{8,9}" data-err="กรุณากรอกเบอร์ 9–10 หลัก ขึ้นต้นด้วย 0" placeholder="08x-xxx-xxxx"></label>
-      <label class="pt-chk"><input type="checkbox" required data-err="กรุณายอมรับเงื่อนไข"> ยินยอมให้ธนาคารติดต่อกลับตามข้อมูลที่ให้ไว้</label>
-      <button type="submit" class="pt-btn">ยืนยันนัดหมาย</button>
-    </form>`, function (m) { wireForm(m, 'ส่งคำขอนัดหมายแล้ว', rows.map(function (r) { return r[1]; }).join(' · ') + '<br>เจ้าหน้าที่จะติดต่อกลับภายใน 1 วันทำการ เพื่อยืนยันวันและเวลา'); });
-  }
-  function loginModal() {
-    openModal(`<h2 id="pt-title">เข้าสู่ระบบ</h2><p class="pt-sub">เลือกบริการที่ต้องการใช้งาน</p>
-    <div class="pt-grid"><a class="pt-card" data-pick="LHB You"><b>LHB You</b><span>ลูกค้าบุคคล</span></a><a class="pt-card" data-pick="LH Bank Speedy"><b>LH Bank Speedy</b><span>Internet Banking ธุรกิจ</span></a><a class="pt-card" data-pick="LHB Biz Connect"><b>LHB Biz Connect</b><span>ดิจิทัลแบงก์กิ้งธุรกิจ</span></a></div>
-    <p class="pt-note">ต้นแบบจำลอง: เว็บไซต์จริงจะพาไปยังหน้าเข้าสู่ระบบของแต่ละบริการ</p>`, function (m) {
-      m.querySelectorAll('[data-pick]').forEach(function (c) { c.addEventListener('click', function () { closeModal(); toast('จำลอง: เปิด ' + c.dataset.pick); }); });
-    });
-  }
-  function appModal() {
-    openModal(`<h2 id="pt-title">ดาวน์โหลดแอป LHB You</h2><p class="pt-sub">เปิดบัญชีออนไลน์และจัดการบัญชี B YOU ได้ในแอปเดียว</p>
-    <div class="pt-qr" aria-hidden="true"></div><p class="pt-note">สแกนเพื่อดาวน์โหลด (QR จำลอง) · ใช้ได้ทั้ง iOS และ Android</p>
-    <button type="button" class="pt-btn" data-close>ปิด</button>`);
-  }
-  /* search overlay */
-  const IDX = [
-    ['เงินฝากออมทรัพย์ดิจิทัล', 'ลูกค้าบุคคล', '02-Personal.html'], ['Family Banking', 'ลูกค้าบุคคล', '02-Personal.html'], ['สินเชื่อบ้านใหม่ Home 1st Class', 'ลูกค้าบุคคล', '02-Personal.html'],
-    ['รีไฟแนนซ์บ้าน', 'ลูกค้าบุคคล', '02-Personal.html'], ['เครื่องคำนวณสินเชื่อบ้าน', 'ลูกค้าบุคคล', '02-Personal.html'], ['แลกเงินต่างประเทศ', 'ลูกค้าบุคคล', '02-Personal.html'], ['LHB You', 'ดิจิทัลแบงก์กิ้ง', '02-Personal.html'],
-    ['สินเชื่อเพื่อหมุนเวียนในธุรกิจ', 'ลูกค้า SME', '03-SME.html'], ['Green Transition Advisory Loan', 'ลูกค้า SME', '03-SME.html'], ['เครื่องคำนวณสินเชื่อ SME', 'ลูกค้า SME', '03-SME.html'], ['Product Program ตามอุตสาหกรรม', 'ลูกค้า SME', '03-SME.html'], ['Advisory Service', 'ลูกค้า SME', '03-SME.html'],
-    ['Cross Border Fast Lane', 'ลูกค้าธุรกิจ', '04-Business.html'], ['Trade Finance Guarantee', 'ลูกค้าธุรกิจ', '04-Business.html'], ['เครือข่าย CTBC', 'ลูกค้าธุรกิจ', '04-Business.html'], ['Relationship Manager', 'ลูกค้าธุรกิจ', '04-Business.html'], ['LH Bank Speedy', 'ดิจิทัลแบงก์กิ้ง', '04-Business.html'],
-    ['อัตราดอกเบี้ย', 'เครื่องมือ', '01-Home.html'], ['ค้นหาสาขา', 'ช่วยเหลือ', '01-Home.html'], ['นักลงทุนสัมพันธ์', 'เกี่ยวกับเรา', '01-Home.html'], ['ติดต่อ LH Bank 1327', 'ช่วยเหลือ', '01-Home.html']
-  ];
-  function searchModal() {
-    openModal(`<h2 id="pt-title">ค้นหา</h2><label class="pt-sr" for="pt-q">ค้นหาผลิตภัณฑ์และบริการ</label><input id="pt-q" class="pt-q" placeholder="พิมพ์ชื่อผลิตภัณฑ์ เช่น สินเชื่อ, บัญชี, SME" autocomplete="off"><ul class="pt-res" aria-live="polite"></ul>`, function (m) {
-      const q = m.querySelector('#pt-q'), ul = m.querySelector('.pt-res');
-      function draw() {
-        const v = q.value.trim().toLowerCase();
-        const r = IDX.filter(function (x) { return !v || (x[0] + ' ' + x[1]).toLowerCase().indexOf(v) >= 0; }).slice(0, 8);
-        ul.innerHTML = r.length ? r.map(function (x) { return '<li><a href="' + x[2] + '"><b>' + x[0] + '</b><span>' + x[1] + '</span></a></li>'; }).join('') : '<li class="pt-none">ไม่พบผลลัพธ์ ลองใช้คำอื่น หรือถาม LH Advisor ในหน้าแรก</li>';
-      }
-      q.addEventListener('input', draw); draw();
-    });
-  }
-  window.LHProto = { toast: toast, apptModal: apptModal, loginModal: loginModal, searchModal: searchModal };
+        var t = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        if (t) t.scrollIntoView({ block: 'start' });
+      }, 60);
+    }
+  };
+  var C = M === 'desktop' ? window.__mk_d() : window.__mk_m();
+  window.__dcBoot(M === 'desktop' ? 'tpl-d' : 'tpl-m', C, M === 'desktop' ? window.__props_d : window.__props_m);
 
-  function label(el) { return (el.getAttribute('aria-label') || el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim(); }
-  /* capture: segment navigation wins over in-page tab state */
+  var lastMode = M;
+  window.addEventListener('resize', function () {
+    if (forced) { fit(); return; }
+    var now = window.innerWidth >= BP ? 'desktop' : 'mobile';
+    if (now !== lastMode) { location.reload(); return; }
+    fit();
+  });
+
+  // ---------- UI helpers ----------
+  var layer = document.createElement('div');
+  layer.id = 'proto-layer';
+  document.body.appendChild(layer);
+
+  var toastTimer;
+  function toast(msg) {
+    var t = document.getElementById('proto-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'proto-toast'; t.setAttribute('role', 'status'); layer.appendChild(t); }
+    t.textContent = msg;
+    t.className = 'show';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.className = ''; }, 3200);
+  }
+  window.__protoToast = toast;
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  var lastFocus = null;
+  function modal(html, onReady) {
+    closeModal();
+    lastFocus = document.activeElement;
+    var w = document.createElement('div');
+    w.id = 'proto-modal';
+    w.innerHTML = '<div class="pm-back" data-close="1"></div><div class="pm-box" role="dialog" aria-modal="true" aria-labelledby="pm-title"><button class="pm-x" type="button" aria-label="ปิด" data-close="1">×</button>' + html + '</div>';
+    layer.appendChild(w);
+    document.documentElement.classList.add('pm-lock');
+    w.addEventListener('click', function (e) { if (e.target.getAttribute('data-close')) closeModal(); });
+    var f = w.querySelector('input, select, button.pm-primary, button');
+    if (f) setTimeout(function () { f.focus(); }, 30);
+    if (onReady) onReady(w.querySelector('.pm-box'));
+  }
+  function closeModal() {
+    var w = document.getElementById('proto-modal');
+    if (w) { w.remove(); document.documentElement.classList.remove('pm-lock'); if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeModal(); closeNav(); } });
+
+  function refNo() { var d = new Date(); return 'LH' + String(d.getFullYear() + 543).slice(2) + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') + '-' + String(Math.floor(1000 + Math.random() * 9000)); }
+
+  function appModal() {
+    modal('<span class="pm-eyebrow">LHB You</span><h2 id="pm-title">เข้าสู่ระบบผ่านแอป LHB You</h2>' +
+      '<p class="pm-lead">ทำธุรกรรม เปิดบัญชี และดูยอดเงินได้ในแอป ใน prototype นี้จะจำลองการเปิดแอป</p>' +
+      '<div class="pm-row"><button class="pm-primary" type="button" data-act="open">เปิดแอป LHB You</button><button class="pm-ghost" type="button" data-close="1">ไว้ทีหลัง</button></div>',
+      function (box) { box.querySelector('[data-act=open]').addEventListener('click', function () { closeModal(); toast('จำลอง: เปิดแอป LHB You'); }); });
+  }
+
+  var FORM_IDS = ['apply', 'dp-app', 'tw', 'book', 'rm', 'advisor', 'mb-adv'];
+  function toForm() {
+    for (var i = 0; i < FORM_IDS.length; i++) {
+      var el = document.getElementById(FORM_IDS[i]);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    }
+    var f = P ? P.file : '';
+    if (/^(09|10)-/.test(f)) go('09-SME.html#book');
+    else if (/^11-/.test(f)) go('11-Corporate.html#rm');
+    else go('02-Personal.html#' + (M === 'desktop' ? 'advisor' : 'mb-adv'));
+  }
+  function label(el) { return (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim(); }
+  function topicFor(text) {
+    var t = text + ' ' + (P && P.title || '');
+    if (/รีไฟแนนซ์/.test(t)) return 'รีไฟแนนซ์บ้าน';
+    if (/Happy Cash|เงินก้อน|รวมหนี้/.test(t)) return 'สินเชื่อส่วนบุคคล Happy Cash';
+    if (/SME|ธุรกิจ/.test(t)) return /ลูกค้าธุรกิจ|RM|Corporate/.test(t) ? 'บริการลูกค้าธุรกิจ' : 'สินเชื่อ SME';
+    if (/บ้าน/.test(t)) return 'สินเชื่อบ้าน';
+    if (/ฝาก|บัญชี|B YOU/.test(t)) return 'เงินฝากและบัญชี B YOU';
+    if (/ช่วงชีวิต/.test(t)) return 'วางแผนการเงินตามช่วงชีวิต';
+    return 'อื่นๆ';
+  }
+  function act(el) {
+    var t = label(el);
+    if (!t) { toast('ปุ่มนี้จะทำงานในเว็บจริง'); return; }
+    if (/^(EN|中文|English|TH|ไทย)( · [A-Z]{2})?$/.test(t)) { var d = el.closest('details'); if (d) d.removeAttribute('open'); toast('เว็บจริงรองรับ 3 ภาษา: ไทย อังกฤษ จีน'); return; }
+    if (/เข้าสู่ระบบ|เปิดแอป|LHB You|ดาวน์โหลดแอป/.test(t)) { appModal(); return; }
+    if (/ดาวน์โหลด|PDF|ไฟล์/.test(t)) { toast('จำลองการดาวน์โหลดไฟล์ “' + t.replace(/ดาวน์โหลด/, '').trim() + '”'); return; }
+    if (/นัด|ผู้เชี่ยวชาญ|สมัคร|สนใจ|ติดต่อ|ปรึกษา|ให้เจ้าหน้าที่|ขอข้อมูล|RM|ลงทะเบียน|ยื่นกู้/.test(t)) { toForm(); return; }
+    if (/โทร|1327/.test(t)) { toast('จำลองการโทร Call Center 1327'); return; }
+    toast('“' + (t.length > 40 ? t.slice(0, 40) + '…' : t) + '” จะเปิดหน้าที่เกี่ยวข้องในเว็บจริง (ยังไม่อยู่ใน prototype)');
+  }
+
+  function go(url) { location.href = keep(url); }
+
+  // capture clicks before the page logic: map links, simulate dead ends
   document.addEventListener('click', function (e) {
-    const el = e.target.closest && e.target.closest('a,button'); if (!el) return;
-    const t = label(el);
-    const inSegNav = el.closest('[aria-label="กลุ่มลูกค้า"]') || el.closest('footer') || el.closest('#mega') || el.closest('nav') || el.getAttribute('href') === '#segments';
-    let page = null;
-    if (el.getAttribute('aria-label') === 'LH Bank หน้าแรก' || (el.closest('header') && el.querySelector && el.querySelector('img[alt="LH Bank"]'))) page = '01-Home.html';
-    else if (inSegNav) { for (const k in PAGES) if (t === k || t.indexOf(k + ' ') === 0 || t.indexOf(k) === 0 && el.getAttribute('href') === '#segments') { page = PAGES[k]; break; } }
-    if (page) { e.preventDefault(); e.stopPropagation(); const here = location.pathname.split('/').pop() || '01-Home.html'; if (here === page) window.scrollTo({ top: 0, behavior: 'smooth' }); else location.href = page; }
-  }, true);
-  /* bubble: everything the design left as a plain link/button */
-  document.addEventListener('click', function (e) {
-    if (e.__dc || e.defaultPrevented) return;
-    const el = e.target.closest && e.target.closest('a,button'); if (!el || ui.contains(el)) return;
-    if (el.closest('form') && el.type === 'submit') return;
-    const t = label(el), href = el.getAttribute('href') || '';
-    if (/^tel:/.test(href)) { e.preventDefault(); toast('จำลองการโทร ' + href.slice(4) + ' (LH Bank Contact Center)'); return; }
-    if (href === '#search' || /ค้นหาอัจฉริยะ|^ค้นหา$/.test(t) && el.tagName === 'A') { e.preventDefault(); searchModal(); return; }
-    if (/เข้าสู่ระบบ/.test(t)) { e.preventDefault(); loginModal(); return; }
-    if (/ยืนยันนัด|ส่งคำขอ/.test(t) && !/กรอกชื่อ/.test(t)) {
-      let box = el.parentElement;
-      for (let k = 0; k < 3 && box && !box.querySelector('input[type=text],input:not([type]),textarea'); k++) box = /^(SECTION|MAIN|BODY)$/.test(box.tagName) ? null : box.parentElement;
-      if (box && box.querySelector('input[type=text],input:not([type]),textarea')) {
+    if (e.target.closest('#proto-layer, #proto-nav')) return;
+    var a = e.target.closest('a');
+    if (a) {
+      var href = a.getAttribute('href') || '';
+      var m = href.match(/([A-Za-z0-9_]+)\.dc\.html(#.*)?$/);
+      if (m) { e.preventDefault(); if (MAP[m[1]]) go(MAP[m[1]] + (m[2] || '')); else act(a); return; }
+      if (/^[0-9]{2}-[A-Za-z-]+\.html/.test(href)) { e.preventDefault(); go(href); return; }
+      if (/^tel:/.test(href)) { e.preventDefault(); toast('จำลองการโทร ' + href.slice(4)); return; }
+      if (/^mailto:/.test(href)) { e.preventDefault(); toast('จำลองการส่งอีเมลถึง ' + href.slice(7)); return; }
+      if (/^https?:/.test(href)) { e.preventDefault(); toast('ลิงก์ภายนอก จะเปิดในแท็บใหม่ในเว็บจริง'); return; }
+      if (href === '' || href === '#') {
         e.preventDefault();
-        const empty = Array.from(box.querySelectorAll('input[type=text],input:not([type]),input[type=tel],input[type=email],textarea')).filter(function (x) { return !x.value.trim(); });
-        if (empty.length) { empty[0].focus(); empty[0].style.outline = '3px solid #FFCD00'; setTimeout(function () { empty[0].style.outline = ''; }, 1600); toast('กรุณากรอกข้อมูลให้ครบก่อนส่งคำขอ'); return; }
-        const picks = Array.from(box.querySelectorAll('[aria-pressed=true]')).map(function (x) { return x.innerText.trim(); }).filter(Boolean);
-        const ref = 'LHB-' + Math.random().toString(36).slice(2, 8).toUpperCase();
-        openModal('<div class="pt-ok"><div class="pt-check">✓</div><h2 id="pt-title">ส่งคำขอนัดหมายแล้ว</h2><p>เจ้าหน้าที่จะติดต่อกลับภายใน 1 วันทำการ เพื่อยืนยันวันและเวลา</p>' + (picks.length ? '<p class="pt-ref">' + picks.join(' · ') + '</p>' : '') + '<p class="pt-ref">หมายเลขอ้างอิง <b>' + ref + '</b></p><button type="button" class="pt-btn" data-close>เสร็จสิ้น</button><p class="pt-note">ระบบจำลองสำหรับนำเสนอ ยังไม่มีการส่งข้อมูลจริง</p></div>');
+        if (!a.hasAttribute('data-ev-click')) act(a);
         return;
       }
-    }
-    if (/กรอกชื่อ|นัดคุย|นัดหมาย|นัดสาขา|ยืนยันนัด|ติดต่อ RM|กับ RM|ส่งคำขอนัด|เริ่มขั้นแรก|ส่งคำขอ/.test(t)) {
-      e.preventDefault();
-      const pre = readBooking(el); if (pre) { apptModalPre(pre); return; }
-      const topic = /SME|ธุรกิจ/.test(document.title) ? (/SME/.test(document.title) ? 'ธุรกิจ SME' : 'ลูกค้าธุรกิจ / RM') : 'บ้านและสินเชื่อ';
-      apptModal(topic); return;
-    }
-    if (/Google Play|App Store|ดาวน์โหลด|เปิดแอป/.test(t) || el.querySelector && el.querySelector('img[alt*="Play"],img[alt*="App Store"]')) { e.preventDefault(); appModal(); return; }
-    if (/กลับขึ้นด้านบน/.test(t) || href === '#main') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
-    if (href.length > 1 && href[0] === '#') {
-      const target = document.querySelector(href); const vis = target && target.offsetParent !== null;
-      if (vis) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-      if (el.tagName === 'A') { e.preventDefault(); toast('จำลอง: ไปยังส่วน “' + t.slice(0, 40) + '”'); }
+      if (href.charAt(0) === '#') {
+        var id = decodeURIComponent(href.slice(1));
+        if (!document.getElementById(id)) { e.preventDefault(); if (!a.hasAttribute('data-ev-click')) act(a); }
+        return;
+      }
       return;
     }
-    if (el.tagName === 'A' && (href === '#' || href === '')) { e.preventDefault(); toast('ต้นแบบ: ลิงก์ “' + t.slice(0, 48) + '” จะไปยังหน้ารายละเอียดในเว็บไซต์จริง'); }
-  });
+    var b = e.target.closest('button');
+    if (b && !b.hasAttribute('data-ev-click') && !b.closest('[data-ev-click]')) {
+      var form = b.closest('form');
+      if (form && (b.type || 'submit') === 'submit') return; // submit handled below
+      e.preventDefault();
+      act(b);
+    }
+  }, true);
+
+  window.__protoSubmit = function (e) {
+    var f = e.target;
+    var t = label(f.querySelector('button[type=submit], button:not([type])') || f);
+    if (/ค้นหา|ถาม|Advisor/.test(t)) { toast('จำลองการค้นหา'); return; }
+    toast('ได้รับข้อมูลแล้ว (จำลอง)');
+  };
+
+  // ---------- page navigator (presentation helper) ----------
+  function closeNav() { var n = document.getElementById('proto-nav'); if (n) n.classList.remove('open'); }
+  if (!SHOT && !q.has('nobar')) {
+    var nav = document.createElement('div');
+    nav.id = 'proto-nav';
+    var list = PAGES.map(function (p) {
+      return '<a href="' + p.file + '"' + (P && p.file === P.file ? ' aria-current="page"' : '') + '><span>' + p.no + '</span>' + esc(p.title) + '</a>';
+    }).join('');
+    var here = P ? P.file : '';
+    nav.innerHTML = '<button type="button" class="pn-tab" aria-expanded="false" aria-controls="pn-panel" title="หน้าทั้งหมดใน prototype"><span aria-hidden="true">☰</span><span class="pn-tab-t">หน้า</span></button>' +
+      '<div id="pn-panel" class="pn-panel"><div class="pn-head"><b>LH Bank 2027 · Prototype</b><button type="button" class="pn-x" aria-label="ปิด">×</button></div>' +
+      '<div class="pn-views" role="group" aria-label="มุมมอง"><a href="' + here + '"' + (!forced ? ' aria-current="true"' : '') + '>อัตโนมัติ</a><a href="' + here + '?view=desktop"' + (forced === 'desktop' ? ' aria-current="true"' : '') + '>Desktop</a><a href="' + here + '?view=mobile"' + (forced === 'mobile' ? ' aria-current="true"' : '') + '>Mobile</a></div>' +
+      '<nav class="pn-list" aria-label="หน้าใน prototype">' + list + '</nav>' +
+      '<a class="pn-index" href="index.html">ดูทุกหน้าแบบเทียบขนาดจอ →</a></div>';
+    document.body.appendChild(nav);
+    var tab = nav.querySelector('.pn-tab');
+    tab.addEventListener('click', function () { var o = nav.classList.toggle('open'); tab.setAttribute('aria-expanded', o ? 'true' : 'false'); });
+    nav.querySelector('.pn-x').addEventListener('click', function () { nav.classList.remove('open'); tab.setAttribute('aria-expanded', 'false'); });
+    nav.querySelectorAll('.pn-list a').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); go(a.getAttribute('href')); }); });
+  }
 })();
